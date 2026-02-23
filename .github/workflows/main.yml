@@ -1,0 +1,73 @@
+name: CI
+
+env:
+  SOURCE_ROOT: pywhatwgurl
+  WPT_URL_COMMIT: efb889eb4c9ca0b4e3ebd8ab308646b7483a8f54
+  WPT_TEST_DATA_PATH: tests/conformance/data
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: ".python-version"
+
+      - name: Install the project (including dev tools)
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run Ruff
+        run: uv run ruff check "${{ env.SOURCE_ROOT }}"
+
+      - name: Run mypy
+        run: uv run mypy "${{ env.SOURCE_ROOT }}"
+
+      - name: Run pip-audit
+        run: |
+          uv export --no-dev --no-hashes --no-emit-project -o /tmp/requirements.txt
+          uv run pip-audit --disable-pip --no-deps -r /tmp/requirements.txt
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Fetch WPT URL resources
+        uses: ./.github/workflows/actions/fetch_wpt_url_test_data
+        with:
+          commit: ${{ env.WPT_URL_COMMIT }}
+          dest_dir: ${{ env.WPT_TEST_DATA_PATH }}
+
+      - name: Install the project
+        run: uv sync --locked --all-extras --dev
+
+      - name: Run tests
+        run: uv run pytest

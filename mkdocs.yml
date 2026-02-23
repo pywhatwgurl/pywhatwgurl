@@ -1,0 +1,107 @@
+site_name: pywhatwgurl
+site_description: Pure Python implementation of the WHATWG URL Standard
+site_url: https://pywhatwgurl.github.io/pywhatwgurl
+repo_url: https://github.com/pywhatwgurl/pywhatwgurl
+repo_name: pywhatwgurl/pywhatwgurl
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            extensions:
+              - griffe_inherited_docstrings
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            docstring_style: google
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
+            inherited_members: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - User Guide:
+      - URL Parsing: guide/url-parsing.md
+      - URL Components: guide/url-components.md
+      - URLSearchParams: guide/search-params.md
+      - Migrating from urllib.parse: guide/migration.md
+  - API Reference:
+      - URL: api/url.md
+      - URLSearchParams: api/urlsearchparams.md
+      - Exceptions: api/exceptions.md
+  - About:
+      - WHATWG Compliance: about/compliance.md
+      - Contributing: about/contributing.md
+      - Changelog: about/changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/pywhatwgurl/pywhatwgurl
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pywhatwgurl/
+
+copyright: Copyright &copy; 2024-2026 pywhatwgurl contributors

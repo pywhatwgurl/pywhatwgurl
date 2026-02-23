@@ -1,0 +1,46 @@
+name: 'fetch_wpt_url_test_data'
+description: 'Retrieve WPT URL test suite JSON.'
+inputs:
+  dest_dir:
+    description: 'Directory (relative to $GITHUB_WORKSPACE) in which to save the sanitized file'
+    required: true
+  commit:
+    description: 'Pinned WPT commit hash to fetch URL resources from'
+    required: false
+    default: 'efb889eb4c9ca0b4e3ebd8ab308646b7483a8f54'
+runs:
+  using: "composite"
+  steps:
+    - name: Ensure destination directory exists
+      shell: bash
+      run: |
+        mkdir -p "${{ github.workspace }}/${{ inputs.dest_dir }}"
+
+    - name: Restore cached JSON
+      id: cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/urltestdata.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/setters_tests.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/percent-encoding.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/toascii.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/IdnaTestV2.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/IdnaTestV2-removed.json
+          ${{ github.workspace }}/${{ inputs.dest_dir }}/wpt_url_test_data_meta.json
+        key: wpt-urltestdata-${{ inputs.commit }}
+
+    - name: Download JSON if cache miss
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "Cache miss! Downloading fresh copy…"
+        python3 "${{ github.workspace }}/util/wpt_url_test_data.py" download \
+          --dest_dir "${{ github.workspace }}/${{ inputs.dest_dir }}" \
+          --commit "${{ inputs.commit }}"
+        echo "Download complete."
+
+    - name: Skip download if cache hit
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: echo "Cache hit! Using existing JSON."

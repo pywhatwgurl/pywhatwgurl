@@ -1,0 +1,31 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# VS Code configuration
+.vscode/
+*.code-workspace
+
+# Downloaded WPT URL test data
+tests/conformance/data/
+
+# Local caches (do not commit)
+.cache/
+.cache/tests/wpt/
+.uv-cache/
+
+# Generated version file
+pywhatwgurl/_version.py
+
+# MkDocs build output
+site/
+
+# Agent files
+AGENTS.md

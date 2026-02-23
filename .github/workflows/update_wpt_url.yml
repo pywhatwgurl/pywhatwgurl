@@ -1,0 +1,131 @@
+name: Bump WPT URL Pin
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 1"  # Mondays at 03:00 UTC
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-wpt-url:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Get pinned WPT commit
+        id: current
+        shell: bash
+        run: |
+          CURRENT=$(python - <<'PY'
+          import pathlib, re, sys
+          text = pathlib.Path("util/wpt_url_test_data.py").read_text()
+          m = re.search(r'DEFAULT_WPT_COMMIT = "([0-9a-f]+)"', text)
+          if not m:
+              sys.exit("Could not find DEFAULT_WPT_COMMIT")
+          print(m.group(1))
+          PY
+          )
+          echo "commit=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest WPT url commit
+        id: latest
+        shell: bash
+        run: |
+          LATEST=$(python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          token = os.getenv("GITHUB_TOKEN")
+          headers = {"User-Agent": "pywhatwgurl-ci"}
+          if token:
+              headers["Authorization"] = f"Bearer {token}"
+
+          req = urllib.request.Request(
+              "https://api.github.com/repos/web-platform-tests/wpt/commits?path=url&per_page=1",
+              headers=headers,
+          )
+          with urllib.request.urlopen(req) as resp:
+              data = json.load(resp)
+          print(data[0]["sha"])
+          PY
+          )
+          echo "commit=${LATEST}" >> "$GITHUB_OUTPUT"
+
+      - name: Stop if already up to date
+        if: steps.latest.outputs.commit == steps.current.outputs.commit
+        run: |
+          echo "Pinned commit matches latest (${{ steps.latest.outputs.commit }}). Nothing to do."
+          exit 0
+
+      - name: Update pinned commit hashes
+        if: steps.latest.outputs.commit != steps.current.outputs.commit
+        shell: bash
+        run: |
+          TARGET="${{ steps.latest.outputs.commit }}"
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          target = "${{ steps.latest.outputs.commit }}"
+          def replace_yaml_scalar_key(key: str, text: str) -> str:
+              pattern = rf"^(\s*){re.escape(key)}\s*:\s*([0-9a-f]+)\s*$"
+              new_text, count = re.subn(
+                  pattern,
+                  lambda m: f"{m.group(1)}{key}: {target}",
+                  text,
+                  flags=re.MULTILINE,
+              )
+              if count == 0:
+                  raise RuntimeError(f"Failed to update {key}")
+              return new_text
+
+          updates = [
+              ".github/workflows/fetch_test_data.yml",
+              ".github/workflows/main.yml",
+          ]
+          for path in updates:
+              p = pathlib.Path(path)
+              p.write_text(replace_yaml_scalar_key("WPT_URL_COMMIT", p.read_text()))
+
+          action_path = pathlib.Path(".github/workflows/actions/fetch_wpt_url_test_data/action.yml")
+          action_text = action_path.read_text()
+          def action_repl(m: re.Match[str]) -> str:
+              return f"{m.group(1)}'{target}'"
+          new_action, count = re.subn(r"(default: )'[^']+'", action_repl, action_text)
+          if count == 0:
+              raise RuntimeError("Failed to update action default commit")
+          action_path.write_text(new_action)
+
+          util_path = pathlib.Path("util/wpt_url_test_data.py")
+          util_text = util_path.read_text()
+          def util_repl(m: re.Match[str]) -> str:
+              return f'{m.group(1)}{target}{m.group(3)}'
+          new_util, count = re.subn(r'(DEFAULT_WPT_COMMIT = ")([0-9a-f]+)(")', util_repl, util_text)
+          if count == 0:
+              raise RuntimeError("Failed to update util DEFAULT_WPT_COMMIT")
+          util_path.write_text(new_util)
+          PY
+
+      - name: Create pull request
+        if: steps.latest.outputs.commit != steps.current.outputs.commit
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.WORKFLOW_PAT || github.token }}
+          commit-message: "chore: bump WPT URL tests to ${{ steps.latest.outputs.commit }}"
+          title: "chore: bump WPT URL tests to ${{ steps.latest.outputs.commit }}"
+          branch: "ci/update-wpt-url"
+          delete-branch: true
+          body: |
+            - Update pinned WPT URL commit to `${{ steps.latest.outputs.commit }}`

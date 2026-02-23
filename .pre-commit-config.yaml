@@ -1,0 +1,24 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: Run ruff check with fix
+        entry: uv run ruff check --fix
+        language: system  # Assumes `uv` is installed and available in the system PATH
+        types: [python]
+        files: \.py$
+
+      - id: mypy
+        name: Run mypy type checking
+        entry: uv run mypy pywhatwgurl
+        language: system
+        types: [python]
+        files: ^pywhatwgurl/
+        pass_filenames: false
+
+      - id: pip-audit
+        name: Run pip-audit (dependency vulnerability scan)
+        entry: bash -c 'uv export --no-dev --no-hashes --no-emit-project -o /tmp/requirements.txt && uv run pip-audit --disable-pip --no-deps -r /tmp/requirements.txt'
+        language: system
+        always_run: true
+        pass_filenames: false

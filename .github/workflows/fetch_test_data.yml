@@ -1,0 +1,24 @@
+name: Fetch WPT URL Test Data
+
+env:
+  WPT_URL_COMMIT: efb889eb4c9ca0b4e3ebd8ab308646b7483a8f54
+  WPT_TEST_DATA_PATH: tests/conformance/data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Runs every day at midnight UTC
+
+jobs:
+  fetch-wpt-url-test-data:
+    name: Fetch fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Fetch WPT URL test suite JSON
+        uses: ./.github/workflows/actions/fetch_wpt_url_test_data
+        with:
+          commit: ${{ env.WPT_URL_COMMIT }}
+          dest_dir: ${{ env.WPT_TEST_DATA_PATH }}

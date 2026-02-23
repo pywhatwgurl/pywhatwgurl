@@ -1,0 +1,115 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pywhatwgurl"
+dynamic = ["version"]
+description = "Pure Python implementation of the WHATWG URL Standard."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Mariana Pavliuk" },
+    { name = "Oleksandr Pavliuk" },
+    { name = "Volodymyr Povroznyk" },
+]
+urls.Repository = "https://github.com/pywhatwgurl/pywhatwgurl"
+urls.Issues = "https://github.com/pywhatwgurl/pywhatwgurl/issues"
+urls.Documentation = "https://pywhatwgurl.github.io/pywhatwgurl"
+keywords = ["url", "whatwg", "parser", "web-standards", "url-parser", "whatwg-url"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
+requires-python = ">=3.10"
+dependencies = ["idna>=3.4"]
+
+[dependency-groups]
+dev = [
+    "interrogate>=1.7.0",
+    "mypy>=1.0",
+    "pip-audit>=2.7.0",
+    "pre-commit>=3.5.0",
+    "pytest>=8.3.5",
+    "ruff>=0.11.12",
+    "cyclonedx-bom>=3.11.0",
+]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+    "griffe-inherited-docstrings>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.mypy]
+strict = true
+warn_return_any = true
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "pywhatwgurl/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["pywhatwgurl"]
+
+[tool.interrogate]
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+ignore-property-decorators = true
+ignore-nested-functions = true
+ignore-overloaded-functions = true
+ignore-module = false
+fail-under = 100
+exclude = [
+    "pywhatwgurl/_version.py",
+    # Implementation files: methods inherit docstrings from interfaces.py
+    "pywhatwgurl/url.py",
+    "pywhatwgurl/search_params.py",
+]
+verbose = 1
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "S",    # flake8-bandit (security)
+    "W",    # pycodestyle warnings
+    "D",    # pydocstyle (docstring quality)
+]
+ignore = [
+    "E501",  # Line too long (pre-existing, address in a separate cleanup)
+    "S101",  # Use of assert (used for type narrowing throughout the parser)
+    "D100",  # Missing docstring in public module (handled by interrogate)
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__
+    "D203",  # 1 blank line required before class docstring (conflicts with D211)
+    "D212",  # Multi-line docstring summary should start at the second line (use D213)
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+"pywhatwgurl/_version.py" = ["D"]
+# Implementation files: methods inherit docstrings from interfaces.py
+"pywhatwgurl/url.py" = ["D102"]
+"pywhatwgurl/search_params.py" = ["D102"]
