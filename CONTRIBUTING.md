@@ -66,7 +66,7 @@ uv run pytest
 uv run pytest --cov=pywhatwgurl
 
 # Run specific test file
-uv run pytest tests/test_url.py
+uv run pytest tests/unit/test_python_api.py
 
 # Run conformance tests only
 uv run pytest tests/conformance/
@@ -173,8 +173,6 @@ def test_url_parsing_with_port():
     assert url.port == "8080"
     assert url.hostname == "example.com"
 ```
-
-### Conformance Tests
 
 ### Conformance Tests
 
