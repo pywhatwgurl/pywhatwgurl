@@ -75,9 +75,11 @@ class MockURL(URL):
         self._href = value
 
     # Minimal implementation of other abstract methods
+    @classmethod
     def can_parse(cls, url: str, base: Optional[str] = None) -> bool:
         return True
 
+    @classmethod
     def parse(cls, url: str, base: Optional[str] = None) -> Optional["URL"]:
         return None
 
