@@ -46,10 +46,10 @@ str(url)       # 'https://user:pass@example.com:8080/path?q=1#frag'
 from pywhatwgurl import URLSearchParams
 
 params = URLSearchParams("a=1&b=2&a=3")
-params.get("a")      # '1'
-params.getAll("a")   # ['1', '3']
+params.get("a")        # '1'
+params.get_all("a")    # ('1', '3')
 params.set("b", "42")
-str(params)           # 'a=1&a=3&b=42'
+str(params)            # 'a=1&b=42&a=3'
 ```
 
 For full API details, see the [documentation](https://pywhatwgurl.github.io/pywhatwgurl).
