@@ -57,7 +57,7 @@ class MockURLSearchParams(URLSearchParams):
         return iter(self._store.items())
 
     def for_each(
-        self, callback: _URLSearchParamsForEachCallback, this_arg: object = None
+        self, callback: _URLSearchParamsForEachCallback
     ) -> None:
         pass
 
