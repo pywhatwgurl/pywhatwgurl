@@ -70,7 +70,8 @@ If you prefer pip:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e .
+pip install pytest ruff mypy pre-commit interrogate pip-audit cyclonedx-bom
 pytest
 ```
 
@@ -107,7 +108,7 @@ Supply Chain Security
 Roadmap
 -------
 - ✅ Implement URL parsing/serialization per WHATWG URL Standard
-- ✅ Validate against the official URL test suite (99.8% conformance)
+- ✅ Validate against the official URL test suite (100% conformance)
 - Ship a minimal, typed API suitable for frameworks and tooling
 
 WPT URL test data
