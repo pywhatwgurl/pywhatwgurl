@@ -1,4 +1,4 @@
-site_name: pywhatwgurl
+site_name: "pywhatwgurl: Python WHATWG URL Parser"
 site_description: Pure Python implementation of the WHATWG URL Standard
 site_url: https://pywhatwgurl.github.io/pywhatwgurl
 repo_url: https://github.com/pywhatwgurl/pywhatwgurl
@@ -7,6 +7,7 @@ edit_uri: edit/master/docs/
 
 theme:
   name: material
+  custom_dir: docs/overrides
   palette:
     # Light mode
     - media: "(prefers-color-scheme: light)"

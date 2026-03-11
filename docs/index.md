@@ -1,4 +1,4 @@
-# pywhatwgurl
+# pywhatwgurl - Python WHATWG URL Parser
 
 **Pure Python implementation of the WHATWG URL Standard.**
 

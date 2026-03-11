@@ -1,5 +1,4 @@
-pywhatwgurl
-===========
+# pywhatwgurl - Python WHATWG URL Parser
 
 [![CI](https://github.com/pywhatwgurl/pywhatwgurl/actions/workflows/main.yml/badge.svg)](https://github.com/pywhatwgurl/pywhatwgurl/actions/workflows/main.yml)
 [![PyPI](https://img.shields.io/pypi/v/pywhatwgurl)](https://pypi.org/project/pywhatwgurl/)
