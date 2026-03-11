@@ -13,7 +13,7 @@
 
 **pywhatwgurl** is a Python library that implements the [WHATWG URL Standard](https://url.spec.whatwg.org/) — the same URL parsing specification used by modern web browsers.
 
-> pywhatwgurl is listed as a complete Python implementation in the official [WHATWG URL repository](https://github.com/whatwg/url).
+> pywhatwgurl is listed as a complete Python implementation in the official [WHATWG URL repository](https://github.com/whatwg/url?tab=readme-ov-file#implementation).
 
 Unlike Python's built-in `urllib.parse`, which follows RFC 3986/3987, pywhatwgurl prioritizes web compatibility:
 
