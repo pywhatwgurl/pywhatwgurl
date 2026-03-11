@@ -48,7 +48,6 @@ def _cmd_download(args):
         )
     except Exception:
         raise
-        sys.exit(1)
     else:
         sys.exit(0)
 
