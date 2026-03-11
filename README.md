@@ -10,6 +10,8 @@ pywhatwgurl
 
 Pure Python implementation of the WHATWG URL Standard. The goal is a small, spec-faithful library for parsing, serializing, and manipulating URLs.
 
+> pywhatwgurl is listed as a complete Python implementation in the official [WHATWG URL repository](https://github.com/whatwg/url?tab=readme-ov-file#implementations).
+
 Status
 ------
 - **100% WHATWG URL Standard conformance** for core URL parsing
