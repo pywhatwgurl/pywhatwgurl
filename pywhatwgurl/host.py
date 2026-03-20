@@ -2,11 +2,8 @@
 """Host parsing and serialization per WHATWG URL Standard."""
 
 from __future__ import annotations
+
 import ipaddress
-from .idna_processor import domain_to_ascii
-
-from typing import List, Optional
-
 
 from .encoding import (
     FORBIDDEN_HOST_CODE_POINTS,
@@ -16,7 +13,10 @@ from .encoding import (
     _percent_decode_string,
     _utf8_percent_encode_string,
 )
+from .idna_processor import domain_to_ascii
 from .record import HostType
+
+_VALID_DIGITS = {8: "01234567", 10: "0123456789", 16: "0123456789abcdef"}
 
 
 def _serialize_ipv4(address: int) -> str:
@@ -24,9 +24,9 @@ def _serialize_ipv4(address: int) -> str:
     return str(ipaddress.IPv4Address(address))
 
 
-def _parse_ipv4_number(s: str) -> Optional[int]:
+def _parse_ipv4_number(s: str) -> int | None:
     """Parse an IPv4 number component (decimal, octal, or hex)."""
-    if s == "":
+    if not s:
         return None
 
     radix = 10
@@ -34,27 +34,20 @@ def _parse_ipv4_number(s: str) -> Optional[int]:
     if len(s) >= 2 and s[0] == "0" and s[1].lower() == "x":
         s = s[2:]
         radix = 16
-    elif len(s) >= 1 and s[0] == "0":
+    elif s[0] == "0":
         s = s[1:]
         radix = 8
 
-    if s == "":
+    if not s:
         return 0
 
-    if radix == 8:
-        if not all(c in "01234567" for c in s):
-            return None
-    elif radix == 10:
-        if not all(c in "0123456789" for c in s):
-            return None
-    else:
-        if not all(c.lower() in "0123456789abcdef" for c in s):
-            return None
+    if not all(c.lower() in _VALID_DIGITS[radix] for c in s):
+        return None
 
     return int(s, radix)
 
 
-def _parse_ipv4(input_str: str) -> Optional[int]:
+def _parse_ipv4(input_str: str) -> int | None:
     """Parse an IPv4 address string into a 32-bit integer."""
     parts = input_str.split(".")
 
@@ -65,16 +58,15 @@ def _parse_ipv4(input_str: str) -> Optional[int]:
     if len(parts) > 4:
         return None
 
-    numbers = []
+    numbers: list[int] = []
     for part in parts:
         n = _parse_ipv4_number(part)
         if n is None:
             return None
         numbers.append(n)
 
-    for i in range(len(numbers) - 1):
-        if numbers[i] > 255:
-            return None
+    if any(n > 255 for n in numbers[:-1]):
+        return None
 
     if numbers[-1] >= 256 ** (5 - len(numbers)):
         return None
@@ -86,10 +78,11 @@ def _parse_ipv4(input_str: str) -> Optional[int]:
     return ipv4
 
 
-def _find_ipv6_compress_index(address: List[int]) -> Optional[int]:
-    longest_index = None
+def _find_ipv6_compress_index(address: list[int]) -> int | None:
+    """Find the start index of the longest run of zero pieces for :: compression."""
+    longest_index: int | None = None
     longest_size = 1
-    current_index = None
+    current_index: int | None = None
     current_size = 0
 
     for i, piece in enumerate(address):
@@ -109,45 +102,43 @@ def _find_ipv6_compress_index(address: List[int]) -> Optional[int]:
     return longest_index
 
 
-def _serialize_ipv6(address: List[int]) -> str:
+def _serialize_ipv6(address: list[int]) -> str:
     """Serialize an IPv6 address to string notation."""
     compress = _find_ipv6_compress_index(address)
     ignore_zero = False
-    output = []
+    output: list[str] = []
 
-    for i in range(8):
-        if ignore_zero and address[i] == 0:
+    for i, piece in enumerate(address):
+        if ignore_zero and piece == 0:
             continue
         elif ignore_zero:
             ignore_zero = False
 
         if compress == i:
-            sep = "::" if i == 0 else ":"
-            output.append(sep)
+            output.append("::" if i == 0 else ":")
             ignore_zero = True
             continue
 
-        output.append(format(address[i], "x"))
+        output.append(f"{piece:x}")
         if i != 7:
             output.append(":")
 
     return "".join(output)
 
 
-def _parse_ipv6(input_str: str) -> Optional[List[int]]:
+def _parse_ipv6(input_str: str) -> list[int] | None:
     """Parse an IPv6 address string into a list of 8 16-bit integers."""
     address = [0] * 8
     piece_index = 0
-    compress: Optional[int] = None
+    compress: int | None = None
     pointer = 0
-    chars = list(input_str)
-    length = len(chars)
+    length = len(input_str)
 
-    def c() -> Optional[str]:
-        return chars[pointer] if pointer < length else None
+    def c() -> str | None:
+        return input_str[pointer] if pointer < length else None
 
     if c() == ":":
-        if pointer + 1 >= length or chars[pointer + 1] != ":":
+        if pointer + 1 >= length or input_str[pointer + 1] != ":":
             return None
         pointer += 2
         piece_index += 1
@@ -186,7 +177,7 @@ def _parse_ipv6(input_str: str) -> Optional[List[int]]:
 
             numbers_seen = 0
             while c() is not None:
-                ipv4_piece: Optional[int] = None
+                ipv4_piece: int | None = None
 
                 if numbers_seen > 0:
                     if c() == "." and numbers_seen < 4:
@@ -262,6 +253,7 @@ def _serialize_host(host: HostType) -> str:
 
 
 def _ends_in_number(input_str: str) -> bool:
+    """Return True if the host string ends in a number (IPv4 indicator)."""
     parts = input_str.split(".")
     if parts and parts[-1] == "":
         if len(parts) == 1:
@@ -279,15 +271,15 @@ def _ends_in_number(input_str: str) -> bool:
     return last.isdigit()
 
 
-def _parse_opaque_host(input_str: str) -> Optional[str]:
-    for char in input_str:
-        if char in FORBIDDEN_HOST_CODE_POINTS and char != "%":
-            return None
+def _parse_opaque_host(input_str: str) -> str | None:
+    """Parse an opaque host string, returning None if it contains forbidden code points."""
+    if any(char in FORBIDDEN_HOST_CODE_POINTS and char != "%" for char in input_str):
+        return None
 
     return _utf8_percent_encode_string(input_str, _is_c0_control_percent_encode)
 
 
-def _parse_host(input_str: str, is_opaque: bool = False) -> Optional[HostType]:
+def _parse_host(input_str: str, is_opaque: bool = False) -> HostType:
     """Parse a host string per WHATWG URL Standard.
 
     Args:

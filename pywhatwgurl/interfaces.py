@@ -4,17 +4,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import (
-    Iterable,
-    Iterator,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Tuple,
-    Union,
-)
+from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
+from typing import Protocol
 
 
 class _URLSearchParamsForEachCallback(Protocol):
@@ -36,14 +27,11 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
     @abstractmethod
     def __init__(
         self,
-        init: Optional[
-            Union[
-                str,
-                Iterable[Sequence[str]],
-                Mapping[str, Union[str, Sequence[str]]],
-                "URLSearchParams",
-            ]
-        ] = None,
+        init: str
+        | Iterable[Sequence[str]]
+        | Mapping[str, str | Sequence[str]]
+        | "URLSearchParams"
+        | None = None,
     ) -> None:
         """Initialize the URLSearchParams object.
 
@@ -64,7 +52,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, name: str, value: Optional[str] = None) -> None:
+    def delete(self, name: str, value: str | None = None) -> None:
         """Remove all name-value pairs where name is `name`.
 
         If `value` is provided, only remove pairs where both name and value match.
@@ -80,7 +68,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         raise NotImplementedError
 
     @abstractmethod
-    def get(self, name: str) -> Optional[str]:  # type: ignore[override]
+    def get(self, name: str) -> str | None:  # type: ignore[override]
         """Return the first value associated with the given search parameter.
 
         Note:
@@ -96,7 +84,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         raise NotImplementedError
 
     @abstractmethod
-    def get_all(self, name: str) -> Tuple[str, ...]:
+    def get_all(self, name: str) -> tuple[str, ...]:
         """Return all values associated with the given search parameter.
 
         Args:
@@ -108,7 +96,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         raise NotImplementedError
 
     @abstractmethod
-    def has(self, name: str, value: Optional[str] = None) -> bool:
+    def has(self, name: str, value: str | None = None) -> bool:
         """Return True if `name` exists.
 
         If `value` is provided, return True only if a pair with `name` and `value` exists.
@@ -182,7 +170,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         return self.size
 
     @abstractmethod
-    def entries(self) -> Iterator[Tuple[str, str]]:
+    def entries(self) -> Iterator[tuple[str, str]]:
         """Return an iterator over all name-value pairs.
 
         Note:
@@ -207,7 +195,7 @@ class URLSearchParams(ABC, MutableMapping[str, str]):
         for _, value in self.entries():
             yield value
 
-    def items(self) -> Iterator[Tuple[str, str]]:  # type: ignore[override]
+    def items(self) -> Iterator[tuple[str, str]]:  # type: ignore[override]
         """Return an iterator over all (name, value) pairs."""
         return self.entries()
 
@@ -254,7 +242,7 @@ class URL(ABC):
     """
 
     @abstractmethod
-    def __init__(self, url: str, base: Optional[str] = None) -> None:
+    def __init__(self, url: str, base: str | None = None) -> None:
         """Parse `url` relative to `base`.
 
         Args:
@@ -268,7 +256,7 @@ class URL(ABC):
 
     @classmethod
     @abstractmethod
-    def parse(cls, url: str, base: Optional[str] = None) -> Optional["URL"]:
+    def parse(cls, url: str, base: str | None = None) -> "URL" | None:
         """Parse `url` relative to `base`.
 
         Args:
@@ -282,7 +270,7 @@ class URL(ABC):
 
     @classmethod
     @abstractmethod
-    def can_parse(cls, url: str, base: Optional[str] = None) -> bool:
+    def can_parse(cls, url: str, base: str | None = None) -> bool:
         """Return True if `url` (relative to `base`) can be parsed, False otherwise.
 
         Args:

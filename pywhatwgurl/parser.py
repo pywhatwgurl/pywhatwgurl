@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from typing import List, Optional
 
 from .encoding import (
     C0_CONTROL_AND_SPACE,
@@ -83,7 +82,7 @@ def _is_double_dot(s: str) -> bool:
 
 def _shorten_path(url: URLRecord) -> None:
     path = url.path
-    if not isinstance(path, list) or len(path) == 0:
+    if not isinstance(path, list) or not path:
         return
 
     if (
@@ -113,19 +112,19 @@ class _URLParser:
 
     def __init__(self) -> None:
         self.url: URLRecord = URLRecord()
-        self.base: Optional[URLRecord] = None
+        self.base: URLRecord | None = None
         self.input: str = ""
         self.pointer: int = 0
         self.buffer: str = ""
         self.state: ParserState = ParserState.SCHEME_START
-        self.state_override: Optional[ParserState] = None
+        self.state_override: ParserState | None = None
         self.at_sign_seen: bool = False
         self.inside_brackets: bool = False
         self.password_token_seen: bool = False
         self._failure: bool = False
-        self._input_codepoints: List[int] = []
+        self._input_codepoints: list[int] = []
 
-    def _c(self) -> Optional[int]:
+    def _c(self) -> int | None:
         if self.pointer < len(self._input_codepoints):
             return self._input_codepoints[self.pointer]
         return None
@@ -141,10 +140,10 @@ class _URLParser:
     def parse(
         self,
         input_str: str,
-        base: Optional[URLRecord] = None,
-        url: Optional[URLRecord] = None,
-        state_override: Optional[ParserState] = None,
-    ) -> Optional[URLRecord]:
+        base: URLRecord | None = None,
+        url: URLRecord | None = None,
+        state_override: ParserState | None = None,
+    ) -> URLRecord | None:
         """Parse a URL string and return a URLRecord, or None on failure."""
         self.base = base
         self.state_override = state_override
@@ -180,10 +179,7 @@ class _URLParser:
         return self.url
 
     def _run_state(self) -> bool:
-        if isinstance(self.state, ParserState):
-            handler = getattr(self, self.state.handler_name, None)
-        else:
-            handler = getattr(self, f"_state_{self.state.replace(' ', '_')}", None)
+        handler = getattr(self, self.state.handler_name, None)
         if handler is None:
             return False
         result: bool = handler()
@@ -383,7 +379,7 @@ class _URLParser:
             or c in (0x2F, 0x3F, 0x23)  # /, ?, #
             or (self.url.is_special() and c == 0x5C)  # \
         ):
-            if self.at_sign_seen and self.buffer == "":
+            if self.at_sign_seen and not self.buffer:
                 self._failure = True
                 return True
             self.pointer -= len(self.buffer) + 1
@@ -403,7 +399,7 @@ class _URLParser:
             self.pointer -= 1
             self.state = ParserState.FILE_HOST
         elif c == 0x3A and not self.inside_brackets:  # :
-            if self.buffer == "":
+            if not self.buffer:
                 self._failure = True
                 return True
 
@@ -425,12 +421,12 @@ class _URLParser:
         ):
             self.pointer -= 1
 
-            if self.url.is_special() and self.buffer == "":
+            if self.url.is_special() and not self.buffer:
                 self._failure = True
                 return True
             elif (
                 self.state_override is not None
-                and self.buffer == ""
+                and not self.buffer
                 and (self.url.includes_credentials() or self.url.port is not None)
             ):
                 return False
@@ -465,7 +461,7 @@ class _URLParser:
             or (self.url.is_special() and c == 0x5C)  # \
             or self.state_override is not None
         ):
-            if self.buffer != "":
+            if self.buffer:
                 port = int(self.buffer)
                 if port > 65535:
                     self._failure = True
@@ -548,7 +544,7 @@ class _URLParser:
             self.pointer -= 1
             if self.state_override is None and _is_windows_drive_letter(self.buffer):
                 self.state = ParserState.PATH
-            elif self.buffer == "":
+            elif not self.buffer:
                 self.url.host = ""
                 if self.state_override is not None:
                     return False
@@ -614,7 +610,7 @@ class _URLParser:
                 if (
                     self.url.scheme == "file"
                     and isinstance(self.url.path, list)
-                    and len(self.url.path) == 0
+                    and not self.url.path
                     and _is_windows_drive_letter(self.buffer)
                 ):
                     self.buffer = self.buffer[0] + ":"
@@ -701,10 +697,10 @@ class _URLParser:
 
 def _basic_url_parse(
     input_str: str,
-    base: Optional[URLRecord] = None,
-    url: Optional[URLRecord] = None,
-    state_override: Optional[ParserState] = None,
-) -> Optional[URLRecord]:
+    base: URLRecord | None = None,
+    url: URLRecord | None = None,
+    state_override: ParserState | None = None,
+) -> URLRecord | None:
     """Parse a URL string using the basic URL parser algorithm."""
     parser = _URLParser()
     return parser.parse(input_str, base, url, state_override)
@@ -749,19 +745,18 @@ def _serialize_url(url: URLRecord, exclude_fragment: bool = False) -> str:
 
 def _serialize_url_origin(url: URLRecord) -> str:
     """Serialize a URL's origin per WHATWG spec."""
-    if url.scheme == "blob":
-        if url.has_opaque_path():
-            assert isinstance(url.path, str)
-            inner_url = _basic_url_parse(url.path)
-            if inner_url is not None and inner_url.scheme in ("http", "https"):
-                return _serialize_url_origin(inner_url)
-        return "null"
-    elif url.scheme in ("http", "https", "ftp", "ws", "wss"):
-        origin = url.scheme + "://" + _serialize_host(url.host)
-        if url.port is not None:
-            origin += ":" + str(url.port)
-        return origin
-    elif url.scheme == "file":
-        return "null"
-    else:
-        return "null"
+    match url.scheme:
+        case "blob":
+            if url.has_opaque_path():
+                assert isinstance(url.path, str)
+                inner_url = _basic_url_parse(url.path)
+                if inner_url is not None and inner_url.scheme in ("http", "https"):
+                    return _serialize_url_origin(inner_url)
+            return "null"
+        case "http" | "https" | "ftp" | "ws" | "wss":
+            origin = f"{url.scheme}://{_serialize_host(url.host)}"
+            if url.port is not None:
+                origin += f":{url.port}"
+            return origin
+        case _:
+            return "null"

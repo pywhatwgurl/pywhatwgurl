@@ -3,17 +3,8 @@
 
 from __future__ import annotations
 
-from typing import (
-    TYPE_CHECKING,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING
 
 from .encoding import (
     _is_urlencoded_percent_encode,
@@ -26,9 +17,17 @@ if TYPE_CHECKING:
     from .url import URLImpl
 
 
-def _parse_urlencoded(data: bytes) -> List[Tuple[str, str]]:
+def _decode_utf8_lossy(data: bytes) -> str:
+    """Decode bytes as UTF-8, replacing invalid sequences."""
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("utf-8", errors="replace")
+
+
+def _parse_urlencoded(data: bytes) -> list[tuple[str, str]]:
     """Parse application/x-www-form-urlencoded bytes into name-value pairs."""
-    result: List[Tuple[str, str]] = []
+    result: list[tuple[str, str]] = []
 
     for sequence in data.split(b"&"):
         if not sequence:
@@ -42,45 +41,26 @@ def _parse_urlencoded(data: bytes) -> List[Tuple[str, str]]:
             name = sequence
             value = b""
 
-        name = name.replace(b"+", b" ")
-        value = value.replace(b"+", b" ")
-
-        name_decoded = _percent_decode_bytes(name)
-        value_decoded = _percent_decode_bytes(value)
-
-        try:
-            name_str = name_decoded.decode("utf-8")
-        except UnicodeDecodeError:
-            name_str = name_decoded.decode("utf-8", errors="replace")
-        try:
-            value_str = value_decoded.decode("utf-8")
-        except UnicodeDecodeError:
-            value_str = value_decoded.decode("utf-8", errors="replace")
+        name_str = _decode_utf8_lossy(_percent_decode_bytes(name.replace(b"+", b" ")))
+        value_str = _decode_utf8_lossy(_percent_decode_bytes(value.replace(b"+", b" ")))
 
         result.append((name_str, value_str))
 
     return result
 
 
-def _parse_urlencoded_string(s: str) -> List[Tuple[str, str]]:
+def _parse_urlencoded_string(s: str) -> list[tuple[str, str]]:
     """Parse application/x-www-form-urlencoded string into name-value pairs."""
     return _parse_urlencoded(s.encode("utf-8"))
 
 
-def _serialize_urlencoded(tuples: List[Tuple[str, str]]) -> str:
+def _serialize_urlencoded(tuples: list[tuple[str, str]]) -> str:
     """Serialize name-value pairs to application/x-www-form-urlencoded format."""
-    output = []
-    for i, (name, value) in enumerate(tuples):
-        encoded_name = _utf8_percent_encode_string(
-            name, _is_urlencoded_percent_encode, space_as_plus=True
-        )
-        encoded_value = _utf8_percent_encode_string(
-            value, _is_urlencoded_percent_encode, space_as_plus=True
-        )
-        if i > 0:
-            output.append("&")
-        output.append(f"{encoded_name}={encoded_value}")
-    return "".join(output)
+    return "&".join(
+        f"{_utf8_percent_encode_string(name, _is_urlencoded_percent_encode, space_as_plus=True)}"
+        f"={_utf8_percent_encode_string(value, _is_urlencoded_percent_encode, space_as_plus=True)}"
+        for name, value in tuples
+    )
 
 
 class URLSearchParamsImpl(URLSearchParams):
@@ -116,17 +96,14 @@ class URLSearchParamsImpl(URLSearchParams):
 
     def __init__(
         self,
-        init: Optional[
-            Union[
-                str,
-                Iterable[Sequence[str]],
-                Mapping[str, Union[str, Sequence[str]]],
-                "URLSearchParamsImpl",
-            ]
-        ] = None,
+        init: str
+        | Iterable[Sequence[str]]
+        | Mapping[str, str | Sequence[str]]
+        | "URLSearchParamsImpl"
+        | None = None,
     ) -> None:
-        self._list: List[Tuple[str, str]] = []
-        self._url: Optional["URLImpl"] = None
+        self._list: list[tuple[str, str]] = []
+        self._url: URLImpl | None = None
 
         if init is None:
             return
@@ -163,31 +140,25 @@ class URLSearchParamsImpl(URLSearchParams):
         self._list.append((name, value))
         self._update_steps()
 
-    def delete(self, name: str, value: Optional[str] = None) -> None:
-        i = 0
-        while i < len(self._list):
-            if self._list[i][0] == name and (
-                value is None or self._list[i][1] == value
-            ):
-                self._list.pop(i)
-            else:
-                i += 1
+    def delete(self, name: str, value: str | None = None) -> None:
+        self._list[:] = [
+            (n, v)
+            for n, v in self._list
+            if not (n == name and (value is None or v == value))
+        ]
         self._update_steps()
 
-    def get(self, name: str) -> Optional[str]:  # type: ignore[override]
+    def get(self, name: str) -> str | None:  # type: ignore[override]
         for n, v in self._list:
             if n == name:
                 return v
         return None
 
-    def get_all(self, name: str) -> Tuple[str, ...]:
+    def get_all(self, name: str) -> tuple[str, ...]:
         return tuple(v for n, v in self._list if n == name)
 
-    def has(self, name: str, value: Optional[str] = None) -> bool:
-        for n, v in self._list:
-            if n == name and (value is None or v == value):
-                return True
-        return False
+    def has(self, name: str, value: str | None = None) -> bool:
+        return any(n == name and (value is None or v == value) for n, v in self._list)
 
     def set(self, name: str, value: str) -> None:
         found = False
@@ -208,7 +179,7 @@ class URLSearchParamsImpl(URLSearchParams):
 
     def sort(self) -> None:
         # Sort by name using UTF-16 code unit ordering per WHATWG spec
-        def utf16_sort_key(item: Tuple[str, str]) -> List[int]:
+        def utf16_sort_key(item: tuple[str, str]) -> list[int]:
             encoded = item[0].encode("utf-16-be")
             return [
                 int.from_bytes(encoded[i : i + 2], "big")
@@ -225,7 +196,7 @@ class URLSearchParamsImpl(URLSearchParams):
     def size(self) -> int:
         return len(self._list)
 
-    def entries(self) -> Iterator[Tuple[str, str]]:
+    def entries(self) -> Iterator[tuple[str, str]]:
         return iter(self._list)
 
     def for_each(self, callback: _URLSearchParamsForEachCallback) -> None:
