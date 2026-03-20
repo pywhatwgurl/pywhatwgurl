@@ -758,5 +758,5 @@ def _serialize_url_origin(url: URLRecord) -> str:
             if url.port is not None:
                 origin += f":{url.port}"
             return origin
-        case _:  # includes "file"
+        case _:
             return "null"

@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 
 def _decode_utf8_lossy(data: bytes) -> str:
     """Decode bytes as UTF-8, replacing invalid sequences."""
-    return data.decode("utf-8", errors="replace")
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:
+        return data.decode("utf-8", errors="replace")
 
 
 def _parse_urlencoded(data: bytes) -> list[tuple[str, str]]:
