@@ -279,7 +279,7 @@ def _parse_opaque_host(input_str: str) -> str | None:
     return _utf8_percent_encode_string(input_str, _is_c0_control_percent_encode)
 
 
-def _parse_host(input_str: str, is_opaque: bool = False) -> HostType:
+def _parse_host(input_str: str, is_opaque: bool = False) -> HostType | None:
     """Parse a host string per WHATWG URL Standard.
 
     Args:
