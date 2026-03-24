@@ -14,8 +14,6 @@ Public API:
 
 from __future__ import annotations
 
-from typing import Optional
-
 from .encoding import (
     _is_userinfo_percent_encode,
     _utf8_percent_encode_string,
@@ -77,8 +75,8 @@ class URLImpl(URL):
         Method documentation is inherited from the URL interface.
     """
 
-    def __init__(self, url: str, base: Optional[str] = None) -> None:
-        parsed_base: Optional[URLRecord] = None
+    def __init__(self, url: str, base: str | None = None) -> None:
+        parsed_base: URLRecord | None = None
         if base is not None:
             parsed_base = _basic_url_parse(base)
             if parsed_base is None:
@@ -94,14 +92,14 @@ class URLImpl(URL):
         self._query._url = self
 
     @classmethod
-    def parse(cls, url: str, base: Optional[str] = None) -> Optional["URLImpl"]:
+    def parse(cls, url: str, base: str | None = None) -> "URLImpl" | None:
         try:
             return cls(url, base)
         except ValueError:
             return None
 
     @classmethod
-    def can_parse(cls, url: str, base: Optional[str] = None) -> bool:
+    def can_parse(cls, url: str, base: str | None = None) -> bool:
         return cls.parse(url, base) is not None
 
     @property

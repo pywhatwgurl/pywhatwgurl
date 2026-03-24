@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Optional
 
 import idna
 from idna.core import IDNABidiError, IDNAError, InvalidCodepoint
@@ -34,11 +33,7 @@ _UNICODE_DOTS_RE = re.compile(r"[\u002e\u3002\uff0e\uff61]")
 
 def _is_ascii_string(s: str) -> bool:
     """Check if string contains only ASCII characters."""
-    try:
-        s.encode("ascii")
-        return True
-    except UnicodeEncodeError:
-        return False
+    return s.isascii()
 
 
 def _has_xn_prefix_label(domain: str) -> bool:
@@ -112,10 +107,12 @@ def _validate_label(label: str, be_strict: bool) -> bool:
         return False
 
     # CheckJoiners: validate ZWNJ and ZWJ context
-    for i, char in enumerate(label):
-        if char in ("\u200c", "\u200d"):  # ZWNJ, ZWJ
-            if not _check_joiner_context(label, i):
-                return False
+    if any(
+        not _check_joiner_context(label, i)
+        for i, char in enumerate(label)
+        if char in ("\u200c", "\u200d")
+    ):
+        return False
 
     # CheckBidi: validate bidirectional text
     if not _check_bidi_label(label):
@@ -124,7 +121,7 @@ def _validate_label(label: str, be_strict: bool) -> bool:
     return True
 
 
-def _punycode_encode(label: str) -> Optional[str]:
+def _punycode_encode(label: str) -> str | None:
     """Encode a Unicode label to Punycode (xn-- prefixed).
 
     Returns the encoded label or None if encoding fails.
@@ -137,7 +134,7 @@ def _punycode_encode(label: str) -> Optional[str]:
         return None
 
 
-def _punycode_decode(label: str) -> Optional[str]:
+def _punycode_decode(label: str) -> str | None:
     """Decode a Punycode label (xn-- prefixed) to Unicode.
 
     Returns the decoded label or None if decoding fails.
@@ -151,7 +148,7 @@ def _punycode_decode(label: str) -> Optional[str]:
         return None
 
 
-def _process_label_to_ascii(label: str, be_strict: bool) -> Optional[str]:
+def _process_label_to_ascii(label: str, be_strict: bool) -> str | None:
     """Process a single label through UTS46 ToASCII.
 
     Returns the ASCII label or None on failure.
@@ -207,7 +204,7 @@ def _process_label_to_ascii(label: str, be_strict: bool) -> Optional[str]:
             if _is_ascii_string(mapped):
                 # If mapped to ASCII-only, original punycode label is invalid
                 # (punycode should only be used for non-ASCII content)
-                re_encoded: Optional[str] = mapped.lower()
+                re_encoded: str | None = mapped.lower()
             else:
                 re_encoded = _punycode_encode(mapped)
             if re_encoded is None or re_encoded.lower() != label.lower():
@@ -231,7 +228,7 @@ def _process_label_to_ascii(label: str, be_strict: bool) -> Optional[str]:
     return encoded.lower()
 
 
-def domain_to_ascii(domain: str, be_strict: bool = False) -> Optional[str]:
+def domain_to_ascii(domain: str, be_strict: bool = False) -> str | None:
     """Convert a domain name to ASCII using IDNA processing.
 
     Implements the WHATWG URL Standard "domain to ASCII" algorithm
@@ -257,10 +254,8 @@ def domain_to_ascii(domain: str, be_strict: bool = False) -> Optional[str]:
     # BUT we still need to check for forbidden code points!
     if _is_ascii_string(domain) and not _has_xn_prefix_label(domain):
         lowercased = domain.lower()
-        # Still need to check for forbidden domain code points
-        for char in lowercased:
-            if char in FORBIDDEN_DOMAIN_CODE_POINTS:
-                return None
+        if any(char in FORBIDDEN_DOMAIN_CODE_POINTS for char in lowercased):
+            return None
         return lowercased
 
     try:
@@ -304,10 +299,8 @@ def domain_to_ascii(domain: str, be_strict: bool = False) -> Optional[str]:
         if result == "" or (result == "." and not trailing_dot):
             return None
 
-        # Check for forbidden domain code points
-        for char in result:
-            if char in FORBIDDEN_DOMAIN_CODE_POINTS:
-                return None
+        if any(char in FORBIDDEN_DOMAIN_CODE_POINTS for char in result):
+            return None
 
     # VerifyDnsLength only when be_strict=true
     if be_strict:

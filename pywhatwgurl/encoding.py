@@ -3,13 +3,13 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional
+from collections.abc import Callable
 
 
 C0_CONTROL_AND_SPACE = "".join(chr(c) for c in range(0x20)) + " "
 """C0 control characters (U+0000 to U+001F) plus space, for input trimming."""
 
-SPECIAL_SCHEMES: Dict[str, Optional[int]] = {
+SPECIAL_SCHEMES: dict[str, int | None] = {
     "ftp": 21,
     "file": None,
     "http": 80,
@@ -144,34 +144,28 @@ def _utf8_percent_encode_codepoint(
     codepoint: int, predicate: Callable[[int], bool]
 ) -> str:
     """Percent-encode a code point using UTF-8 encoding."""
-    char = chr(codepoint)
-    encoded = char.encode("utf-8")
-    result = []
-    for byte in encoded:
-        if predicate(byte):
-            result.append(_percent_encode(byte))
-        else:
-            result.append(chr(byte))
-    return "".join(result)
+    encoded = chr(codepoint).encode("utf-8")
+    return "".join(
+        _percent_encode(byte) if predicate(byte) else chr(byte) for byte in encoded
+    )
 
 
 def _utf8_percent_encode_string(
     s: str, predicate: Callable[[int], bool], space_as_plus: bool = False
 ) -> str:
     """Percent-encode a string using UTF-8 encoding."""
-    result = []
-    for char in s:
-        if space_as_plus and char == " ":
-            result.append("+")
-        else:
-            result.append(_utf8_percent_encode_codepoint(ord(char), predicate))
-    return "".join(result)
+    return "".join(
+        "+"
+        if space_as_plus and char == " "
+        else _utf8_percent_encode_codepoint(ord(char), predicate)
+        for char in s
+    )
 
 
 def percent_encode_after_encoding(
     s: str,
     encoding: str = "utf-8",
-    predicate: Optional[Callable[[int], bool]] = None,
+    predicate: Callable[[int], bool] | None = None,
 ) -> str:
     """Percent-encode a string using the specified character encoding.
 

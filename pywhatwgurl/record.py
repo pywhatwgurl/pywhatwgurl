@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
 
 from .encoding import SPECIAL_SCHEMES
 
@@ -12,11 +11,11 @@ from .encoding import SPECIAL_SCHEMES
 # Host can be:
 # - str: domain or opaque host
 # - int: IPv4 address (32-bit integer)
-# - List[int]: IPv6 address (8 x 16-bit integers)
-HostType = Union[str, int, List[int], None]
+# - list[int]: IPv6 address (8 x 16-bit integers)
+HostType = str | int | list[int] | None
 
 
-@dataclass
+@dataclass(slots=True)
 class URLRecord:
     """Internal URL representation per WHATWG spec."""
 
@@ -24,10 +23,10 @@ class URLRecord:
     username: str = ""
     password: str = ""
     host: HostType = None
-    port: Optional[int] = None
-    path: Union[List[str], str] = field(default_factory=list)
-    query: Optional[str] = None
-    fragment: Optional[str] = None
+    port: int | None = None
+    path: list[str] | str = field(default_factory=list)
+    query: str | None = None
+    fragment: str | None = None
 
     def is_special(self) -> bool:
         """Return True if this URL has a special scheme."""
@@ -45,6 +44,6 @@ class URLRecord:
         """Return True if URL cannot have username/password/port."""
         return self.host is None or self.host == "" or self.scheme == "file"
 
-    def default_port(self) -> Optional[int]:
+    def default_port(self) -> int | None:
         """Return the default port for this URL's scheme, or None."""
         return SPECIAL_SCHEMES.get(self.scheme)
