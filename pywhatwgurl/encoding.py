@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 
@@ -50,89 +51,81 @@ def _is_ascii_hex(c: int) -> bool:
     return _is_ascii_digit(c) or 0x41 <= c <= 0x46 or 0x61 <= c <= 0x66
 
 
+# Pre-computed sets of ASCII codepoints (0x00-0x7E) needing percent-encoding
+# for each encoding class. For any codepoint > 0x7E, all predicates return True.
+_C0_ENCODE_SET: frozenset[int] = frozenset(range(0x20))
+_FRAGMENT_ENCODE_SET: frozenset[int] = _C0_ENCODE_SET | frozenset(ord(x) for x in ' "<>`')
+_QUERY_ENCODE_SET: frozenset[int] = _C0_ENCODE_SET | frozenset(ord(x) for x in ' "#<>')
+_SPECIAL_QUERY_ENCODE_SET: frozenset[int] = _QUERY_ENCODE_SET | {0x27}
+_PATH_ENCODE_SET: frozenset[int] = _QUERY_ENCODE_SET | frozenset(ord(x) for x in "?`{}^")
+_USERINFO_ENCODE_SET: frozenset[int] = _PATH_ENCODE_SET | frozenset(ord(x) for x in "/:;=@[\\]|")
+_COMPONENT_ENCODE_SET: frozenset[int] = _USERINFO_ENCODE_SET | frozenset(ord(x) for x in "$%&+,")
+_URLENCODED_ENCODE_SET: frozenset[int] = _COMPONENT_ENCODE_SET | frozenset(ord(x) for x in "!'()~")
+
+
 def _is_c0_control_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding (C0 control set)."""
-    return c <= 0x1F or c > 0x7E
-
-
-_EXTRA_FRAGMENT = frozenset(ord(x) for x in ' "<>`')
+    return c > 0x7E or c in _C0_ENCODE_SET
 
 
 def _is_fragment_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in URL fragments."""
-    return _is_c0_control_percent_encode(c) or c in _EXTRA_FRAGMENT
-
-
-_EXTRA_QUERY = frozenset(ord(x) for x in ' "#<>')
+    return c > 0x7E or c in _FRAGMENT_ENCODE_SET
 
 
 def _is_query_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in URL queries."""
-    return _is_c0_control_percent_encode(c) or c in _EXTRA_QUERY
+    return c > 0x7E or c in _QUERY_ENCODE_SET
 
 
 def _is_special_query_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in special URL queries."""
-    return _is_query_percent_encode(c) or c == 0x27  # '
-
-
-_EXTRA_PATH = frozenset(ord(x) for x in "?`{}^")
+    return c > 0x7E or c in _SPECIAL_QUERY_ENCODE_SET
 
 
 def _is_path_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in URL paths."""
-    return _is_query_percent_encode(c) or c in _EXTRA_PATH
-
-
-_EXTRA_USERINFO = frozenset(ord(x) for x in "/:;=@[\\]|")
+    return c > 0x7E or c in _PATH_ENCODE_SET
 
 
 def _is_userinfo_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in URL userinfo."""
-    return _is_path_percent_encode(c) or c in _EXTRA_USERINFO
-
-
-_EXTRA_COMPONENT = frozenset(ord(x) for x in "$%&+,")
+    return c > 0x7E or c in _USERINFO_ENCODE_SET
 
 
 def _is_component_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in URL components."""
-    return _is_userinfo_percent_encode(c) or c in _EXTRA_COMPONENT
-
-
-_EXTRA_URLENCODED = frozenset(ord(x) for x in "!'()~")
+    return c > 0x7E or c in _COMPONENT_ENCODE_SET
 
 
 def _is_urlencoded_percent_encode(c: int) -> bool:
     """Return True if code point requires percent-encoding in form data."""
-    return _is_component_percent_encode(c) or c in _EXTRA_URLENCODED
+    return c > 0x7E or c in _URLENCODED_ENCODE_SET
+
+
+_PERCENT_ENCODED: tuple[str, ...] = tuple(f"%{byte:02X}" for byte in range(256))
+"""Pre-computed percent-encoded representations for all 256 byte values."""
+
+_CHR: tuple[str, ...] = tuple(chr(i) for i in range(128))
+"""Pre-computed chr() results for ASCII codepoints, avoiding per-call overhead."""
+
+_CHR_LOWER: tuple[str, ...] = tuple(chr(i).lower() for i in range(128))
+"""Pre-computed lowercase chr() results for ASCII codepoints."""
 
 
 def _percent_encode(byte: int) -> str:
     """Convert a byte to its percent-encoded representation."""
-    return f"%{byte:02X}"
+    return _PERCENT_ENCODED[byte]
+
+
+_PERCENT_RE = re.compile(b"%([0-9A-Fa-f]{2})")
 
 
 def _percent_decode_bytes(data: bytes) -> bytes:
     """Decode percent-encoded byte sequences."""
-    result = bytearray()
-    i = 0
-    while i < len(data):
-        byte = data[i]
-        if byte != 0x25:  # %
-            result.append(byte)
-            i += 1
-        elif i + 2 >= len(data):
-            result.append(byte)
-            i += 1
-        elif not (_is_ascii_hex(data[i + 1]) and _is_ascii_hex(data[i + 2])):
-            result.append(byte)
-            i += 1
-        else:
-            hex_str = chr(data[i + 1]) + chr(data[i + 2])
-            result.append(int(hex_str, 16))
-            i += 3
-    return bytes(result)
+    if b"%" not in data:
+        return data
+    return _PERCENT_RE.sub(lambda m: bytes([int(m.group(1), 16)]), data)
 
 
 def _percent_decode_string(s: str) -> bytes:
@@ -144,9 +137,11 @@ def _utf8_percent_encode_codepoint(
     codepoint: int, predicate: Callable[[int], bool]
 ) -> str:
     """Percent-encode a code point using UTF-8 encoding."""
+    if codepoint < 0x80:
+        return _PERCENT_ENCODED[codepoint] if predicate(codepoint) else _CHR[codepoint]
     encoded = chr(codepoint).encode("utf-8")
     return "".join(
-        _percent_encode(byte) if predicate(byte) else chr(byte) for byte in encoded
+        _PERCENT_ENCODED[byte] if predicate(byte) else chr(byte) for byte in encoded
     )
 
 
@@ -154,12 +149,17 @@ def _utf8_percent_encode_string(
     s: str, predicate: Callable[[int], bool], space_as_plus: bool = False
 ) -> str:
     """Percent-encode a string using UTF-8 encoding."""
-    return "".join(
-        "+"
-        if space_as_plus and char == " "
-        else _utf8_percent_encode_codepoint(ord(char), predicate)
-        for char in s
-    )
+    parts: list[str] = []
+    for char in s:
+        if space_as_plus and char == " ":
+            parts.append("+")
+        else:
+            cp = ord(char)
+            if cp < 0x80:
+                parts.append(_PERCENT_ENCODED[cp] if predicate(cp) else char)
+            else:
+                parts.append(_utf8_percent_encode_codepoint(cp, predicate))
+    return "".join(parts)
 
 
 def percent_encode_after_encoding(

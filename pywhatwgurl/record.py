@@ -38,7 +38,7 @@ class URLRecord:
 
     def includes_credentials(self) -> bool:
         """Return True if URL has non-empty username or password."""
-        return bool(self.username or self.password)
+        return self.username != "" or self.password != ""
 
     def cannot_have_username_password_port(self) -> bool:
         """Return True if URL cannot have username/password/port."""
