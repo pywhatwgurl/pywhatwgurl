@@ -96,7 +96,7 @@ IDNA tests are marked as expected failures (`xfail`) because the Python `idna` l
 
 **Why not fix these?**
 1. No Python WHATWG-compliant IDNA implementation exists
-2. Even [ada-url](https://github.com/nicolubiern/ada-url) (C++ with custom IDNA) only achieves 96.9%
+2. Even non-Python implementations with custom IDNA handling still fall short of full compliance
 3. Real-world domains work correctly — failures are obscure edge cases
 
 For details, see [tests/conformance/README.md](tests/conformance/README.md).
