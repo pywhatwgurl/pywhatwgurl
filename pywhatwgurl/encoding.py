@@ -54,6 +54,8 @@ def _is_ascii_hex(c: int) -> bool:
 # Pre-computed sets of ASCII codepoints (0x00-0x7E) needing percent-encoding
 # for each encoding class. For any codepoint > 0x7E, all predicates return True.
 _C0_ENCODE_SET: frozenset[int] = frozenset(range(0x20))
+# DEL (0x7F) is intentionally excluded here and handled by the shared
+# `c > 0x7E` guard in the percent-encoding predicates below.
 _FRAGMENT_ENCODE_SET: frozenset[int] = _C0_ENCODE_SET | frozenset(ord(x) for x in ' "<>`')
 _QUERY_ENCODE_SET: frozenset[int] = _C0_ENCODE_SET | frozenset(ord(x) for x in ' "#<>')
 _SPECIAL_QUERY_ENCODE_SET: frozenset[int] = _QUERY_ENCODE_SET | {0x27}
