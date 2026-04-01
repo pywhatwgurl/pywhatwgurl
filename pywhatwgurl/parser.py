@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from enum import Enum
 
 from .encoding import (
@@ -122,6 +124,29 @@ class _URLParser:
         self._failure: bool = False
         self._input_codepoints: list[int] = []
         self._cp_len: int = 0
+        self._dispatch: dict[ParserState, Callable[[], bool]] = {
+            ParserState.SCHEME_START: self._state_scheme_start,
+            ParserState.SCHEME: self._state_scheme,
+            ParserState.NO_SCHEME: self._state_no_scheme,
+            ParserState.SPECIAL_RELATIVE_OR_AUTHORITY: self._state_special_relative_or_authority,
+            ParserState.PATH_OR_AUTHORITY: self._state_path_or_authority,
+            ParserState.RELATIVE: self._state_relative,
+            ParserState.RELATIVE_SLASH: self._state_relative_slash,
+            ParserState.SPECIAL_AUTHORITY_SLASHES: self._state_special_authority_slashes,
+            ParserState.SPECIAL_AUTHORITY_IGNORE_SLASHES: self._state_special_authority_ignore_slashes,
+            ParserState.AUTHORITY: self._state_authority,
+            ParserState.HOST: self._state_hostname,
+            ParserState.HOSTNAME: self._state_hostname,
+            ParserState.PORT: self._state_port,
+            ParserState.FILE: self._state_file,
+            ParserState.FILE_SLASH: self._state_file_slash,
+            ParserState.FILE_HOST: self._state_file_host,
+            ParserState.PATH_START: self._state_path_start,
+            ParserState.PATH: self._state_path,
+            ParserState.OPAQUE_PATH: self._state_opaque_path,
+            ParserState.QUERY: self._state_query,
+            ParserState.FRAGMENT: self._state_fragment,
+        }
 
     def _c(self) -> int | None:
         if self.pointer < self._cp_len:
@@ -165,33 +190,8 @@ class _URLParser:
         self.password_token_seen = False
         self._failure = False
 
-        dispatch = {
-            ParserState.SCHEME_START: self._state_scheme_start,
-            ParserState.SCHEME: self._state_scheme,
-            ParserState.NO_SCHEME: self._state_no_scheme,
-            ParserState.SPECIAL_RELATIVE_OR_AUTHORITY: self._state_special_relative_or_authority,
-            ParserState.PATH_OR_AUTHORITY: self._state_path_or_authority,
-            ParserState.RELATIVE: self._state_relative,
-            ParserState.RELATIVE_SLASH: self._state_relative_slash,
-            ParserState.SPECIAL_AUTHORITY_SLASHES: self._state_special_authority_slashes,
-            ParserState.SPECIAL_AUTHORITY_IGNORE_SLASHES: self._state_special_authority_ignore_slashes,
-            ParserState.AUTHORITY: self._state_authority,
-            ParserState.HOST: self._state_hostname,
-            ParserState.HOSTNAME: self._state_hostname,
-            ParserState.PORT: self._state_port,
-            ParserState.FILE: self._state_file,
-            ParserState.FILE_SLASH: self._state_file_slash,
-            ParserState.FILE_HOST: self._state_file_host,
-            ParserState.PATH_START: self._state_path_start,
-            ParserState.PATH: self._state_path,
-            ParserState.OPAQUE_PATH: self._state_opaque_path,
-            ParserState.QUERY: self._state_query,
-            ParserState.FRAGMENT: self._state_fragment,
-        }
-        cp_len = self._cp_len
-
         while True:
-            handler = dispatch.get(self.state)
+            handler = self._dispatch.get(self.state)
             if handler is None:
                 break
             if not handler():
@@ -199,7 +199,7 @@ class _URLParser:
             if self._failure:
                 return None
             self.pointer += 1
-            if self.pointer > cp_len:
+            if self.pointer > self._cp_len:
                 break
 
         return self.url
@@ -651,7 +651,7 @@ class _URLParser:
         elif c == 0x20:  # space
             remaining = (
                 self._input_codepoints[self.pointer + 1]
-                if self.pointer + 1 < len(self._input_codepoints)
+                if self.pointer + 1 < self._cp_len
                 else None
             )
             if remaining in (0x3F, 0x23):  # ? or #
@@ -705,9 +705,16 @@ class _URLParser:
         return True
 
 
-# Singleton parser instance — safe to reuse because parse() fully resets all
-# state before each invocation, making __init__ redundant repeated work.
-_parser = _URLParser()
+_parser_local = threading.local()
+
+
+def _get_parser() -> _URLParser:
+    """Return a thread-local parser instance."""
+    parser = getattr(_parser_local, "parser", None)
+    if parser is None:
+        parser = _URLParser()
+        _parser_local.parser = parser
+    return parser
 
 
 def _basic_url_parse(
@@ -717,7 +724,7 @@ def _basic_url_parse(
     state_override: ParserState | None = None,
 ) -> URLRecord | None:
     """Parse a URL string using the basic URL parser algorithm."""
-    return _parser.parse(input_str, base, url, state_override)
+    return _get_parser().parse(input_str, base, url, state_override)
 
 
 def _serialize_url(url: URLRecord, exclude_fragment: bool = False) -> str:
