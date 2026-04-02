@@ -26,7 +26,7 @@ IDNA tests are marked as expected failures (`xfail`) because the Python `idna` l
 3. **Real-world domains work correctly** — Failures are obscure edge cases
 
 > [!NOTE]
-> Even ada-url (C++ with custom IDNA) only achieves 96.9% on these tests.
+> Custom IDNA handling alone is not enough to reach full compliance on these tests.
 
 ## Running Tests
 

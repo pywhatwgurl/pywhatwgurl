@@ -1,7 +1,7 @@
 name: Fetch WPT URL Test Data
 
 env:
-  WPT_URL_COMMIT: 808541773a6208a4c71ce740149a7e94e990922e
+  WPT_URL_COMMIT: fddd06acf60ab064597210321a873b0fac93f71f
   WPT_TEST_DATA_PATH: tests/conformance/data
 
 on:
