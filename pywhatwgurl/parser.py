@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
-import re
+import threading
+from collections.abc import Callable
 from enum import Enum
 
 from .encoding import (
     C0_CONTROL_AND_SPACE,
     SPECIAL_SCHEMES,
+    _CHR,
+    _CHR_LOWER,
     _is_ascii_alpha,
     _is_ascii_alphanumeric,
     _is_ascii_digit,
@@ -50,11 +53,8 @@ class ParserState(str, Enum):
     QUERY = "query"
     FRAGMENT = "fragment"
 
-    @property
-    def handler_name(self) -> str:
-        """Return the method name for this state's handler."""
-        return f"_state_{self.value.replace(' ', '_')}"
 
+_TAB_NL_CR_TABLE: dict[int, None] = {0x09: None, 0x0A: None, 0x0D: None}
 
 _SINGLE_DOT_SEGMENTS = (".", "%2e")
 _DOUBLE_DOT_SEGMENTS = ("..", ".%2e", "%2e.", "%2e%2e")
@@ -123,19 +123,42 @@ class _URLParser:
         self.password_token_seen: bool = False
         self._failure: bool = False
         self._input_codepoints: list[int] = []
+        self._cp_len: int = 0
+        self._dispatch: dict[ParserState, Callable[[], bool]] = {
+            ParserState.SCHEME_START: self._state_scheme_start,
+            ParserState.SCHEME: self._state_scheme,
+            ParserState.NO_SCHEME: self._state_no_scheme,
+            ParserState.SPECIAL_RELATIVE_OR_AUTHORITY: self._state_special_relative_or_authority,
+            ParserState.PATH_OR_AUTHORITY: self._state_path_or_authority,
+            ParserState.RELATIVE: self._state_relative,
+            ParserState.RELATIVE_SLASH: self._state_relative_slash,
+            ParserState.SPECIAL_AUTHORITY_SLASHES: self._state_special_authority_slashes,
+            ParserState.SPECIAL_AUTHORITY_IGNORE_SLASHES: self._state_special_authority_ignore_slashes,
+            ParserState.AUTHORITY: self._state_authority,
+            ParserState.HOST: self._state_hostname,
+            ParserState.HOSTNAME: self._state_hostname,
+            ParserState.PORT: self._state_port,
+            ParserState.FILE: self._state_file,
+            ParserState.FILE_SLASH: self._state_file_slash,
+            ParserState.FILE_HOST: self._state_file_host,
+            ParserState.PATH_START: self._state_path_start,
+            ParserState.PATH: self._state_path,
+            ParserState.OPAQUE_PATH: self._state_opaque_path,
+            ParserState.QUERY: self._state_query,
+            ParserState.FRAGMENT: self._state_fragment,
+        }
 
     def _c(self) -> int | None:
-        if self.pointer < len(self._input_codepoints):
+        if self.pointer < self._cp_len:
             return self._input_codepoints[self.pointer]
         return None
 
     def _remaining(self) -> str:
-        return "".join(chr(c) for c in self._input_codepoints[self.pointer + 1 :])
+        return self.input[self.pointer + 1 :]
 
     def _remaining_starts_with(self, s: str) -> bool:
-        remaining = self._input_codepoints[self.pointer + 1 :]
-        s_codes = [ord(c) for c in s]
-        return remaining[: len(s_codes)] == s_codes
+        start = self.pointer + 1
+        return self.input[start : start + len(s)] == s
 
     def parse(
         self,
@@ -154,10 +177,11 @@ class _URLParser:
             self.url = URLRecord()
             input_str = input_str.strip(C0_CONTROL_AND_SPACE)
 
-        input_str = re.sub(r"[\t\n\r]", "", input_str)
+        input_str = input_str.translate(_TAB_NL_CR_TABLE)
 
         self.input = input_str
         self._input_codepoints = [ord(c) for c in input_str]
+        self._cp_len = len(self._input_codepoints)
         self.state = state_override or ParserState.SCHEME_START
         self.pointer = 0
         self.buffer = ""
@@ -167,28 +191,23 @@ class _URLParser:
         self._failure = False
 
         while True:
-            result = self._run_state()
-            if result is False:
+            handler = self._dispatch.get(self.state)
+            if handler is None:
+                break
+            if not handler():
                 break
             if self._failure:
                 return None
             self.pointer += 1
-            if self.pointer > len(self._input_codepoints):
+            if self.pointer > self._cp_len:
                 break
 
         return self.url
 
-    def _run_state(self) -> bool:
-        handler = getattr(self, self.state.handler_name, None)
-        if handler is None:
-            return False
-        result: bool = handler()
-        return result
-
     def _state_scheme_start(self) -> bool:
         c = self._c()
         if c is not None and _is_ascii_alpha(c):
-            self.buffer += chr(c).lower()
+            self.buffer += _CHR_LOWER[c]
             self.state = ParserState.SCHEME
         elif self.state_override is None:
             self.state = ParserState.NO_SCHEME
@@ -202,7 +221,7 @@ class _URLParser:
         if c is not None and (
             _is_ascii_alphanumeric(c) or c in (0x2B, 0x2D, 0x2E)  # +, -, .
         ):
-            self.buffer += chr(c).lower()
+            self.buffer += _CHR_LOWER[c]
         elif c == 0x3A:  # :
             if self.state_override is not None:
                 if self.url.is_special() and self.buffer not in SPECIAL_SCHEMES:
@@ -386,11 +405,8 @@ class _URLParser:
             self.buffer = ""
             self.state = ParserState.HOST
         else:
-            self.buffer += chr(c)
+            self.buffer += _CHR[c] if c < 0x80 else chr(c)
         return True
-
-    def _state_host(self) -> bool:
-        return self._state_hostname()
 
     def _state_hostname(self) -> bool:
         c = self._c()
@@ -447,14 +463,14 @@ class _URLParser:
                 self.inside_brackets = True
             elif c == 0x5D:  # ]
                 self.inside_brackets = False
-            self.buffer += chr(c)
+            self.buffer += _CHR[c] if c < 0x80 else chr(c)
         return True
 
     def _state_port(self) -> bool:
         c = self._c()
 
         if c is not None and _is_ascii_digit(c):
-            self.buffer += chr(c)
+            self.buffer += _CHR[c] if c < 0x80 else chr(c)
         elif (
             c is None
             or c in (0x2F, 0x3F, 0x23)  # /, ?, #
@@ -501,10 +517,7 @@ class _URLParser:
                 self.state = ParserState.FRAGMENT
             elif c is not None:
                 self.url.query = None
-                remaining = "".join(
-                    chr(x) for x in self._input_codepoints[self.pointer :]
-                )
-                if not _starts_with_windows_drive_letter(remaining):
+                if not _starts_with_windows_drive_letter(self.input[self.pointer :]):
                     _shorten_path(self.url)
                 else:
                     self.url.path = []
@@ -522,11 +535,8 @@ class _URLParser:
         else:
             if self.base is not None and self.base.scheme == "file":
                 self.url.host = self.base.host
-                remaining = "".join(
-                    chr(x) for x in self._input_codepoints[self.pointer :]
-                )
                 if (
-                    not _starts_with_windows_drive_letter(remaining)
+                    not _starts_with_windows_drive_letter(self.input[self.pointer :])
                     and isinstance(self.base.path, list)
                     and self.base.path
                     and _is_normalized_windows_drive_letter(self.base.path[0])
@@ -564,7 +574,7 @@ class _URLParser:
                 self.buffer = ""
                 self.state = ParserState.PATH_START
         else:
-            self.buffer += chr(c)
+            self.buffer += _CHR[c] if c < 0x80 else chr(c)
         return True
 
     def _state_path_start(self) -> bool:
@@ -641,7 +651,7 @@ class _URLParser:
         elif c == 0x20:  # space
             remaining = (
                 self._input_codepoints[self.pointer + 1]
-                if self.pointer + 1 < len(self._input_codepoints)
+                if self.pointer + 1 < self._cp_len
                 else None
             )
             if remaining in (0x3F, 0x23):  # ? or #
@@ -683,7 +693,7 @@ class _URLParser:
             )
             self.buffer = ""
         else:
-            self.buffer += chr(c)
+            self.buffer += _CHR[c] if c < 0x80 else chr(c)
         return True
 
     def _state_fragment(self) -> bool:
@@ -695,6 +705,18 @@ class _URLParser:
         return True
 
 
+_parser_local = threading.local()
+
+
+def _get_parser() -> _URLParser:
+    """Return a thread-local parser instance."""
+    parser = getattr(_parser_local, "parser", None)
+    if parser is None:
+        parser = _URLParser()
+        _parser_local.parser = parser
+    return parser
+
+
 def _basic_url_parse(
     input_str: str,
     base: URLRecord | None = None,
@@ -702,8 +724,7 @@ def _basic_url_parse(
     state_override: ParserState | None = None,
 ) -> URLRecord | None:
     """Parse a URL string using the basic URL parser algorithm."""
-    parser = _URLParser()
-    return parser.parse(input_str, base, url, state_override)
+    return _get_parser().parse(input_str, base, url, state_override)
 
 
 def _serialize_url(url: URLRecord, exclude_fragment: bool = False) -> str:

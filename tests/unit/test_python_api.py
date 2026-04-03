@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
+
 import pytest
 
 from pywhatwgurl import URL, URLSearchParams, percent_encode_after_encoding
+from pywhatwgurl import parser as parser_module
 
 
 @pytest.fixture()
@@ -98,6 +102,23 @@ class TestURLErrors:
     )
     def test_can_parse(self, url: str, expected: bool) -> None:
         assert URL.can_parse(url) is expected
+
+
+class TestParserReuse:
+    def test_thread_local_parser_reused_per_thread(self) -> None:
+        barrier = Barrier(2)
+
+        def get_parser_id(_: int) -> int:
+            first = parser_module._get_parser()
+            barrier.wait()
+            second = parser_module._get_parser()
+            assert first is second
+            return id(first)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            first_id, second_id = executor.map(get_parser_id, range(2))
+
+        assert first_id != second_id
 
 
 class TestPercentEncodeAfterEncoding:
