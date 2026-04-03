@@ -50,6 +50,9 @@ jobs:
       - name: Build package
         run: uv build
 
+      - name: Install dev tools
+        run: uv sync --only-group dev
+
       - name: Generate SBOM
         run: |
           uv export --no-dev --no-hashes --format=requirements-txt > requirements.txt
