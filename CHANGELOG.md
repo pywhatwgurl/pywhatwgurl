@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-04-03
+
+### Changed
+- Improved parser dispatch and percent-encoding hot paths for better runtime performance.
+- Modernized internal type annotations and cleaned up Python implementation details.
+- Refreshed the pinned WPT URL test data used by the conformance suite.
+
+### Fixed
+- Repaired CI and release workflow issues so the Python test matrix, dependency audit, and SBOM generation run correctly.
+- Corrected test mock signatures and removed unreachable utility code.
+- Cleaned up documentation issues in the README, CONTRIBUTING guide, and IDNA notes.
+
 ## [0.1.0] - 2026-03-03
 
 ### Added
