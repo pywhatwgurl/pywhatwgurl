@@ -42,7 +42,7 @@ jobs:
 
       - name: Run pip-audit
         run: |
-          uv export --no-dev --no-hashes --no-emit-project -o /tmp/requirements.txt
+          uv export --no-dev --no-hashes --no-emit-project | grep -v '^\s*#' > /tmp/requirements.txt
           uv run pip-audit --disable-pip --no-deps -r /tmp/requirements.txt
 
   test:
@@ -59,6 +59,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Fetch WPT URL resources
         uses: ./.github/workflows/actions/fetch_wpt_url_test_data
