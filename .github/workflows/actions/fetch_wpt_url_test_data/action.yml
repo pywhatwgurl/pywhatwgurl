@@ -7,7 +7,7 @@ inputs:
   commit:
     description: 'Pinned WPT commit hash to fetch URL resources from'
     required: false
-    default: 'd4598eba0959249d8715818a402b432c513f9492'
+    default: '181476aa16e8b28a07698bef3a0275fa53dd22e5'
 runs:
   using: "composite"
   steps:
