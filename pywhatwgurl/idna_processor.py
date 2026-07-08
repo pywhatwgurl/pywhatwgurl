@@ -12,7 +12,8 @@ Processing (UTS46) with the following parameters for beStrict=false:
 - UseSTD3ASCIIRules: false
 - Transitional_Processing: false
 - VerifyDnsLength: false (allows labels > 63 bytes)
-- IgnoreInvalidPunycode: false
+- IgnoreInvalidPunycode: false, except that non-strict ASCII domains
+  bypass Unicode ToASCII errors for web compatibility
 
 Reference: https://url.spec.whatwg.org/#idna
 """
@@ -34,12 +35,6 @@ _UNICODE_DOTS_RE = re.compile(r"[\u002e\u3002\uff0e\uff61]")
 def _is_ascii_string(s: str) -> bool:
     """Check if string contains only ASCII characters."""
     return s.isascii()
-
-
-def _has_xn_prefix_label(domain: str) -> bool:
-    """Check if any label starts with 'xn--' (case-insensitive)."""
-    labels = domain.split(".")
-    return any(label.lower().startswith("xn--") for label in labels)
 
 
 def _check_bidi_label(label: str) -> bool:
@@ -246,13 +241,9 @@ def domain_to_ascii(domain: str, be_strict: bool = False) -> str | None:
     if not domain:
         return "" if not be_strict else None
 
-    # Fast path: ASCII-only domain without xn-- labels
-    # Per spec: "If beStrict is false, domain is an ASCII string, and strictly
-    # splitting domain on U+002E (.) does not produce any item that starts with
-    # an ASCII case-insensitive match for 'xn--', this step is equivalent to
-    # ASCII lowercasing domain."
-    # BUT we still need to check for forbidden code points!
-    if _is_ascii_string(domain) and not _has_xn_prefix_label(domain):
+    # Per WHATWG URL, non-strict ASCII domains lower-case and bypass Unicode
+    # ToASCII errors, even for labels that start with "xn--".
+    if _is_ascii_string(domain) and not be_strict:
         lowercased = domain.lower()
         if any(char in FORBIDDEN_DOMAIN_CODE_POINTS for char in lowercased):
             return None
