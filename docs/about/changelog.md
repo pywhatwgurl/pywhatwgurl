@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-14
+
+### Changed
+- Refreshed the pinned Web Platform Tests URL data used by the conformance suite.
+
+### Fixed
+- Corrected non-strict IDNA conversion for ASCII domains containing `xn--` labels, while preserving forbidden-code-point rejection and strict-mode validation.
+
 ## [0.1.1] - 2026-04-03
 
 ### Changed
@@ -34,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Known Limitations
 - IDNA tests are marked as expected failures (`xfail`) because Python's `idna` library follows stricter RFC 5891/5892 rules than the WHATWG URL Standard's lenient UTS46 processing.
 
-[Unreleased]: https://github.com/pywhatwgurl/pywhatwgurl/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/pywhatwgurl/pywhatwgurl/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/pywhatwgurl/pywhatwgurl/releases/tag/v0.1.2
 [0.1.1]: https://github.com/pywhatwgurl/pywhatwgurl/releases/tag/v0.1.1
 [0.1.0]: https://github.com/pywhatwgurl/pywhatwgurl/releases/tag/v0.1.0
