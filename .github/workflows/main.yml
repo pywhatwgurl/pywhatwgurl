@@ -2,7 +2,7 @@ name: CI
 
 env:
   SOURCE_ROOT: pywhatwgurl
-  WPT_URL_COMMIT: 181476aa16e8b28a07698bef3a0275fa53dd22e5
+  WPT_URL_COMMIT: 509e6fa4bc34de46802aae59ff103b87caa426a0
   WPT_TEST_DATA_PATH: tests/conformance/data
 
 on:

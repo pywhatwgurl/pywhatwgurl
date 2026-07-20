@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CHUNK_SIZE = 8192
-DEFAULT_WPT_COMMIT = "181476aa16e8b28a07698bef3a0275fa53dd22e5"
+DEFAULT_WPT_COMMIT = "509e6fa4bc34de46802aae59ff103b87caa426a0"
 BASE_URL_TEMPLATE = (
     "https://raw.githubusercontent.com/web-platform-tests/wpt/{commit}/url/"
 )
