@@ -20,6 +20,7 @@ Status
 Installation
 ------------
 Requires Python 3.10+.
+The required CI test matrix covers standard CPython 3.10 through 3.14.
 
 ```bash
 pip install pywhatwgurl

@@ -50,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,29 @@ jobs:
           dest_dir: ${{ env.WPT_TEST_DATA_PATH }}
 
       - name: Install the project
-        run: uv sync --locked --all-extras --dev
+        run: uv sync --python "${{ matrix.python-version }}" --locked --all-extras --dev
+
+      - name: Identify test interpreter and Unicode dependencies
+        env:
+          EXPECTED_PYTHON: ${{ matrix.python-version }}
+        run: |
+          uv run --no-sync --python "$EXPECTED_PYTHON" python - <<'PY'
+          import os
+          import sys
+          import sysconfig
+          import unicodedata
+
+          import idna
+
+          actual = f"{sys.version_info.major}.{sys.version_info.minor}"
+          print(f"Python: {sys.version} ({sys.executable})")
+          print(f"idna: {idna.__version__}")
+          print(f"Unicode: {unicodedata.unidata_version}")
+          print(f"GIL-enabled build: {not bool(sysconfig.get_config_var('Py_GIL_DISABLED'))}")
+          assert actual == os.environ["EXPECTED_PYTHON"]
+          assert sys.implementation.name == "cpython"
+          assert not sysconfig.get_config_var("Py_GIL_DISABLED")
+          PY
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run --no-sync --python "${{ matrix.python-version }}" python -m pytest
