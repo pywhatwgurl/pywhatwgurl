@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Added standard CPython 3.14 to the declared classifiers and required CI test matrix.
+
 ## [0.1.2] - 2026-07-14
 
 ### Changed

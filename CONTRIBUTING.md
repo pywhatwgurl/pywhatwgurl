@@ -7,6 +7,7 @@ Thank you for your interest in contributing to pywhatwgurl! This guide will help
 ### Prerequisites
 
 - Python 3.10 or higher
+- CI tests standard CPython 3.10 through 3.14.
 - [uv](https://github.com/astral-sh/uv) (recommended) or pip
 - Git
 
